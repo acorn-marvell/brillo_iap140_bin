@@ -1,0 +1,71 @@
+diff --git a/libsparse/output_file.c b/libsparse/output_file.c
+old mode 100644
+new mode 100755
+index cd30800..96d8449
+--- a/libsparse/output_file.c
++++ b/libsparse/output_file.c
+@@ -351,6 +351,7 @@ static int write_sparse_skip_chunk(struct output_file *out, int64_t skip_len)
+ 	/* We are skipping data, so emit a don't care chunk. */
+ 	chunk_header.chunk_type = CHUNK_TYPE_DONT_CARE;
+ 	chunk_header.reserved1 = 0;
++	chunk_header.reserved2 = 0;
+ 	chunk_header.chunk_sz = skip_len / out->block_size;
+ 	chunk_header.total_sz = CHUNK_HEADER_LEN;
+ 	ret = out->ops->write(out, &chunk_header, sizeof(chunk_header));
+@@ -376,6 +377,7 @@ static int write_sparse_fill_chunk(struct output_file *out, unsigned int len,
+ 	/* Finally we can safely emit a chunk of data */
+ 	chunk_header.chunk_type = CHUNK_TYPE_FILL;
+ 	chunk_header.reserved1 = 0;
++	chunk_header.reserved2 = 0;
+ 	chunk_header.chunk_sz = rnd_up_len / out->block_size;
+ 	chunk_header.total_sz = CHUNK_HEADER_LEN + sizeof(fill_val);
+ 	ret = out->ops->write(out, &chunk_header, sizeof(chunk_header));
+@@ -412,6 +414,7 @@ static int write_sparse_data_chunk(struct output_file *out, unsigned int len,
+ 	/* Finally we can safely emit a chunk of data */
+ 	chunk_header.chunk_type = CHUNK_TYPE_RAW;
+ 	chunk_header.reserved1 = 0;
++	chunk_header.reserved2 = 0;
+ 	chunk_header.chunk_sz = rnd_up_len / out->block_size;
+ 	chunk_header.total_sz = CHUNK_HEADER_LEN + rnd_up_len;
+ 	ret = out->ops->write(out, &chunk_header, sizeof(chunk_header));
+@@ -447,6 +450,7 @@ int write_sparse_end_chunk(struct output_file *out)
+ 	if (out->use_crc) {
+ 		chunk_header.chunk_type = CHUNK_TYPE_CRC32;
+ 		chunk_header.reserved1 = 0;
++		chunk_header.reserved2 = 0;
+ 		chunk_header.chunk_sz = 0;
+ 		chunk_header.total_sz = CHUNK_HEADER_LEN + 4;
+ 
+@@ -579,7 +583,8 @@ static int output_file_init(struct output_file *out, int block_size,
+ 				.blk_sz = out->block_size,
+ 				.total_blks = out->len / out->block_size,
+ 				.total_chunks = chunks,
+-				.image_checksum = 0
++				.image_checksum = 0,
++				.reserved1 = 0
+ 		};
+ 
+ 		if (out->use_crc) {
+diff --git a/libsparse/sparse_format.h b/libsparse/sparse_format.h
+old mode 100644
+new mode 100755
+index c41f12a..165d41c
+--- a/libsparse/sparse_format.h
++++ b/libsparse/sparse_format.h
+@@ -28,7 +28,7 @@ typedef struct sparse_header {
+   __le32	total_blks;	/* total blocks in the non-sparse output image */
+   __le32	total_chunks;	/* total chunks in the sparse input image */
+   __le32	image_checksum; /* CRC32 checksum of the original data, counting "don't care" */
+-				/* as 0. Standard 802.3 polynomial, use a Public Domain */
++  __le32	reserved1;	/* as 0. Standard 802.3 polynomial, use a Public Domain */
+ 				/* table implementation */
+ } sparse_header_t;
+ 
+@@ -42,6 +42,7 @@ typedef struct sparse_header {
+ typedef struct chunk_header {
+   __le16	chunk_type;	/* 0xCAC1 -> raw; 0xCAC2 -> fill; 0xCAC3 -> don't care */
+   __le16	reserved1;
++  __le32	reserved2;
+   __le32	chunk_sz;	/* in blocks in output image */
+   __le32	total_sz;	/* in bytes of chunk input file including chunk header and data */
+ } chunk_header_t;
