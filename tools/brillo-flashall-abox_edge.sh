@@ -13,6 +13,7 @@ SPARSE_TOOL="sparse_converter"
 FLASH_TOOL="swdl_linux"
 
 LOCAL_DIR=$(pwd)
+TMP_DIR=""
 
 function print_help()
 {
@@ -39,16 +40,16 @@ function do_flashing()
 		exit 1
 	fi
 
-	local tmp_dir=$(mktemp -dt "abox.XXXXXX")
-	${UNZIP} -o -q -d ${tmp_dir} ${zip_file}
+	TMP_DIR=$(mktemp -dt "abox.XXXXXX")
+	${UNZIP} -o -q -d ${TMP_DIR} ${zip_file}
 	if [ $? -ne 0 ]; then
-		rm -rf ${tmp_dir}
+		rm -rf ${TMP_DIR}
 		echo "unzip ${zip_file} error..."
 	fi
-	cp -ab "${blf_file}" ${tmp_dir}
-	cp -ab "${sparse_tool}" ${tmp_dir}
-	cp -ab "${flash_tool}" ${tmp_dir}
-	cd ${tmp_dir}
+	cp -ab "${blf_file}" ${TMP_DIR}
+	cp -ab "${sparse_tool}" ${TMP_DIR}
+	cp -ab "${flash_tool}" ${TMP_DIR}
+	cd ${TMP_DIR}
 
 	# Convert the image to be compatible with the flash tool
 	mkdir -p sparse
@@ -57,7 +58,7 @@ function do_flashing()
 		./${SPARSE_TOOL} ./sparse/${img} ${img} > /dev/null 2>&1
 		if [ $? -ne 0 ]; then
 			echo "Sparse image ${img} convert error..."
-			rm -rf {tmp_dir}
+			rm -rf {TMP_DIR}
 			exit 1	
 		fi
 	done
@@ -65,12 +66,15 @@ function do_flashing()
 	# Start flashing
 	sudo ./${FLASH_TOOL} -D ${FLASH_CONFIG} -S
 	if [ $? -ne 0 ]; then
-		echo "Flash error, refer to ${tmp_dir} for error logs..."	
+		echo "Flash error, refer to ${TMP_DIR} for error logs..."
 	else
 		echo "Flash success..."
-		rm -rf ${tmp_dir}
+		rm -rf ${TMP_DIR}
 	fi
 }
+
+#main
+trap 'echo "Cancel the flashing process[$$]"; rm -rf ${TMP_DIR}; kill -9 $$' INT TERM STOP
 
 if [ $# -lt 1 ]; then
 	print_help
